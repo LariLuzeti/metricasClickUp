@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sprint Metrics — ClickUp</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --purple: #7b68ee;
+      --purple-light: #ede9fe;
+      --bg: #f5f6fa;
+      --card: #ffffff;
+      --text: #1a1a2e;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --green: #10b981;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      background: var(--purple);
+      color: white;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 2px 8px rgba(123,104,238,0.3);
+    }
+    .topbar svg { width: 28px; height: 28px; flex-shrink: 0; }
+    .topbar h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+    .topbar span { font-size: 13px; opacity: 0.8; margin-left: 4px; }
+
+    /* ── LAYOUT ── */
+    .main { max-width: 1100px; margin: 0 auto; padding: 28px 24px; }
+
+    /* ── CORS WARNING ── */
+    .cors-warning {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 24px;
+      font-size: 13px;
+      color: #92400e;
+      display: none;
+    }
+    .cors-warning.visible { display: block; }
+    .cors-warning code {
+      background: #fef3c7;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 18px;
+    }
+    .card-title svg {
+      width: 15px;
+      height: 15px;
+      stroke: var(--purple);
+      flex-shrink: 0;
+    }
+
+    /* ── CONFIG FORM ── */
+    .config-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 640px) { .config-grid { grid-template-columns: 1fr; } }
+
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+    }
+    .field label svg {
+      width: 13px;
+      height: 13px;
+      stroke: var(--purple);
+      flex-shrink: 0;
+    }
+    .field input {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--text);
+      background: var(--bg);
+      transition: border 0.15s, background 0.15s;
+      width: 100%;
+    }
+    .field input:focus { outline: none; border-color: var(--purple); background: #fff; }
+
+    .field-full { grid-column: 1 / -1; }
+
+    .hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+      line-height: 1.5;
+    }
+    .hint a { color: var(--purple); text-decoration: none; }
+    .hint a:hover { text-decoration: underline; }
+
+    /* ── TOGGLE FIELD ── */
+    .toggle-field {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .toggle-field:hover { border-color: var(--purple); }
+    .toggle-field input[type=checkbox] {
+      width: 16px; height: 16px;
+      accent-color: var(--purple);
+      cursor: pointer;
+      margin-top: 1px;
+      flex-shrink: 0;
+    }
+    .toggle-field-text { display: flex; flex-direction: column; gap: 3px; }
+    .toggle-field-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.3;
+    }
+    .toggle-field-hint { font-size: 11px; color: var(--muted); }
+
+    /* ── BUTTON ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--purple);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 11px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-outline:hover { background: var(--bg); }
+    .btn-row { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+
+    /* ── INSTRUCTIONS ── */
+    .instructions {
+      background: var(--purple-light);
+      border-radius: 10px;
+      padding: 16px 18px;
+      font-size: 13px;
+      color: #4c1d95;
+      margin-bottom: 16px;
+    }
+    .instructions h4 { font-size: 13px; margin-bottom: 8px; }
+    .instructions ol { padding-left: 16px; }
+    .instructions li { margin-bottom: 6px; line-height: 1.5; }
+    .instructions code {
+      background: white;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .instructions details summary { cursor: pointer; font-weight: 700; margin-bottom: 8px; }
+
+    /* ── PROGRESS ── */
+    .progress-section { display: none; }
+    .progress-section.visible { display: block; }
+    .progress-bar-wrap {
+      background: var(--border);
+      border-radius: 99px;
+      height: 8px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .progress-bar-fill {
+      background: var(--purple);
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.3s ease;
+    }
+    .progress-label { font-size: 13px; color: var(--muted); }
+
+    /* ── SUMMARY CARDS ── */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+    .stat-card .val { font-size: 26px; font-weight: 800; color: var(--purple); }
+    .stat-card .lbl { font-size: 11px; color: var(--muted); margin-top: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* ── CHART ── */
+    .chart-wrap { height: 260px; position: relative; }
+
+    /* ── TABLE ── */
+    .table-scroll { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    thead th {
+      background: var(--bg);
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    tbody td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    tbody tr:hover { background: var(--bg); }
+    tbody tr:last-child td { border-bottom: none; }
+
+    .task-name {
+      font-weight: 600;
+      color: var(--text);
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .task-id { font-size: 11px; color: var(--purple); }
+
+    .time-cell { font-variant-numeric: tabular-nums; }
+    .time-bar {
+      height: 4px;
+      border-radius: 99px;
+      margin-top: 4px;
+      opacity: 0.7;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .tfoot-row td {
+      font-weight: 700;
+      background: var(--purple-light);
+      color: var(--purple);
+    }
+
+    /* ── RESULTS SECTION ── */
+    #results { display: none; }
+    #results.visible { display: block; }
+
+    /* ── ERROR ── */
+    .error-box {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 10px;
+      padding: 14px 18px;
+      color: #991b1b;
+      font-size: 13px;
+      display: none;
+    }
+    .error-box.visible { display: block; }
+
+    /* ── DEBUG ── */
+    .debug-toggle { font-size: 12px; color: var(--purple); cursor: pointer; text-decoration: underline; }
+    .debug-content { display: none; background: #1e1e2e; color: #cdd6f4; border-radius: 8px; padding: 14px; font-family: monospace; font-size: 11px; overflow: auto; max-height: 300px; margin-top: 12px; }
+    .debug-content.visible { display: block; }
+
+    /* ── STATUS MANAGER ── */
+    .status-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-height: 48px;
+      padding: 4px 0;
+    }
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px 6px 8px;
+      border-radius: 8px;
+      border: 2px solid transparent;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: grab;
+      user-select: none;
+      transition: opacity 0.15s, transform 0.15s, border-color 0.15s;
+      background: var(--bg);
+    }
+    .status-chip:active { cursor: grabbing; }
+    .status-chip.hidden-chip { opacity: 0.35; }
+    .status-chip.drag-over { border-color: var(--purple); transform: scale(1.04); }
+    .status-chip.dragging { opacity: 0.3; }
+    .chip-handle {
+      font-size: 14px;
+      opacity: 0.4;
+      cursor: grab;
+      line-height: 1;
+    }
+    .chip-dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .chip-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .chip-eye {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      padding: 0 2px;
+      opacity: 0.6;
+      transition: opacity 0.15s;
+      line-height: 1;
+    }
+    .chip-eye:hover { opacity: 1; }
+    .status-mgr-hint { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <svg viewBox="0 0 32 32" fill="none">
+      <rect width="32" height="32" rx="8" fill="white" fill-opacity="0.2"/>
+      <path d="M8 20l8-8 4 4 4-4 4 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <h1>Sprint Metrics <span>— ClickUp · Tempo real por status</span></h1>
+  </div>
+
+  <div class="main">
+
+    <!-- CORS WARNING -->
+    <div class="cors-warning" id="corsWarning">
+      ⚠️ <strong>Erro de CORS detectado.</strong> Abrir um arquivo HTML diretamente (file://) pode bloquear chamadas à API.
+      Solução rápida: abra o terminal na pasta onde salvou este arquivo e execute
+      <code>python3 -m http.server 8080</code>, depois acesse
+      <code>http://localhost:8080/sprint_metrics_clickup.html</code>
+    </div>
+
+    <!-- CONFIGURATION CARD -->
+    <div class="card">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Configuração
+      </div>
+
+      <div class="config-grid">
+        <div class="field field-full">
+          <label>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            API Key do ClickUp
+          </label>
+          <input type="password" id="apiKey" placeholder="pk_xxxxxxxxxxxxxxxxxxxx" />
+          <span class="hint">Token pessoal — nunca enviado a nenhum servidor. Tudo roda no seu navegador.</span>
+        </div>
+        <div class="field field-full">
+          <label>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
+            List ID da Sprint
+          </label>
+          <input type="text" id="listId" placeholder="abc123xyz" />
+          <span class="hint">ID da lista/sprint no ClickUp.</span>
+        </div>
+        <div class="field">
+          <label>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Início da Sprint
+          </label>
+          <input type="date" id="startDate" />
+        </div>
+        <div class="field">
+          <label>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Fim da Sprint
+          </label>
+          <input type="date" id="endDate" />
+        </div>
+        <div class="field-full">
+          <label class="toggle-field" for="onlyParentToggle">
+            <input type="checkbox" id="onlyParentToggle" onchange="toggleParentFilter()" />
+            <div class="toggle-field-text">
+              <span class="toggle-field-label">Considerar apenas tarefas mães (excluir subtarefas)</span>
+              <span class="toggle-field-hint">Quando ativado, subtarefas são ignoradas nos gráficos, tabela e totais.</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" id="analyzeBtn" onclick="analyze()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          Analisar Sprint
+        </button>
+      </div>
+    </div>
+
+    <!-- PROGRESS -->
+    <div class="progress-section card" id="progressSection">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.03-5.07"/></svg>
+        Buscando dados…
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
+      </div>
+      <div class="progress-label" id="progressLabel">Iniciando…</div>
+    </div>
+
+    <!-- ERROR -->
+    <div class="error-box" id="errorBox"></div>
+
+    <!-- RESULTS -->
+    <div id="results">
+
+      <!-- Summary -->
+      <div class="summary-grid" id="summaryGrid"></div>
+
+      <!-- Status Manager -->
+      <div class="card" id="statusManagerCard">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+          Configurar colunas
+        </div>
+        <p class="status-mgr-hint">Arraste para reordenar · clique no olho para mostrar/ocultar · alterações refletem no gráfico e na tabela</p>
+        <div class="status-chips" id="statusChips"></div>
+      </div>
+
+      <!-- Chart 1: Total -->
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          Total de horas por status
+        </div>
+        <div class="chart-wrap">
+          <canvas id="chartCanvas"></canvas>
+        </div>
+        <div class="btn-row" style="margin-top:16px;">
+          <button class="btn btn-outline" onclick="exportPNG('chartCanvas', 'total')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            Exportar PNG
+          </button>
+        </div>
+      </div>
+
+      <!-- Chart 2: Average -->
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          Média de horas por tarefa · por status
+        </div>
+        <div class="chart-wrap">
+          <canvas id="chartCanvasAvg"></canvas>
+        </div>
+        <div class="btn-row" style="margin-top:16px;">
+          <button class="btn btn-outline" onclick="exportPNG('chartCanvasAvg', 'media')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            Exportar PNG
+          </button>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
+          Detalhamento por tarefa
+        </div>
+        <div class="btn-row" style="margin-top:0; margin-bottom:16px;">
+          <button class="btn btn-outline" onclick="exportExcel()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            Exportar Excel
+          </button>
+          <span class="debug-toggle" onclick="toggleDebug()">Ver dados brutos (debug)</span>
+        </div>
+        <div class="table-scroll" id="tableWrap"></div>
+        <div class="debug-content" id="debugContent"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // ─── STATE ───────────────────────────────────────────────────────────────
+    let chartInstance = null;
+    let chartInstanceAvg = null;
+    let allTaskData = [];
+    let allStatuses = [];        // ordered list of all statuses found
+    let hiddenStatuses = new Set(); // statuses currently hidden
+    let dragSrcIdx = null;       // drag source index
+    let onlyParentTasks = false; // filter: only parent tasks (no subtasks)
+
+    function getActiveStatuses() {
+      return allStatuses.filter(s => !hiddenStatuses.has(s));
+    }
+
+    function getFilteredTaskData() {
+      if (!onlyParentTasks) return allTaskData;
+      return allTaskData.filter(t => !t.parentId);
+    }
+
+    // ─── STATUS ORDER ────────────────────────────────────────────────────────
+    // Normaliza: remove acentos, lowercase, colapsa espaços — para matching flexível
+    function norm(s) {
+      return s.toLowerCase()
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/\s+/g, ' ').trim();
+    }
+
+    const STATUS_ORDER = [
+      'a fazer', 'code review', 'em progresso', 'disponivel qa',
+      'em qa', 'validado qa', 'pausada', 'dependencia externa', 'concluido'
+    ].map(norm);
+
+    function sortStatuses(statuses) {
+      return [...statuses].sort((a, b) => {
+        const ai = STATUS_ORDER.indexOf(norm(a));
+        const bi = STATUS_ORDER.indexOf(norm(b));
+        if (ai === -1 && bi === -1) return a.localeCompare(b, 'pt');
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
+      });
+    }
+
+    // ─── STATUS MANAGER ──────────────────────────────────────────────────────
+    function renderStatusManager() {
+      const container = document.getElementById('statusChips');
+      container.innerHTML = '';
+
+      allStatuses.forEach((status, idx) => {
+        const color = palette[idx % palette.length];
+        const hidden = hiddenStatuses.has(status);
+
+        const chip = document.createElement('div');
+        chip.className = 'status-chip' + (hidden ? ' hidden-chip' : '');
+        chip.draggable = true;
+        chip.dataset.idx = idx;
+        chip.innerHTML = `
+          <span class="chip-handle" title="Arrastar">⠿</span>
+          <span class="chip-dot" style="background:${color}"></span>
+          <span class="chip-name" title="${status}">${status}</span>
+          <button class="chip-eye" title="${hidden ? 'Mostrar' : 'Ocultar'}" onclick="toggleStatusVisibility('${status.replace(/'/g,"\\'")}')">
+            ${hidden ? '🚫' : '👁️'}
+          </button>
+        `;
+
+        // Drag events
+        chip.addEventListener('dragstart', e => {
+          dragSrcIdx = idx;
+          chip.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        chip.addEventListener('dragend', () => {
+          chip.classList.remove('dragging');
+          document.querySelectorAll('.status-chip').forEach(c => c.classList.remove('drag-over'));
+        });
+        chip.addEventListener('dragover', e => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          document.querySelectorAll('.status-chip').forEach(c => c.classList.remove('drag-over'));
+          chip.classList.add('drag-over');
+        });
+        chip.addEventListener('dragleave', () => chip.classList.remove('drag-over'));
+        chip.addEventListener('drop', e => {
+          e.preventDefault();
+          if (dragSrcIdx === null || dragSrcIdx === idx) return;
+          // Reorder allStatuses
+          const moved = allStatuses.splice(dragSrcIdx, 1)[0];
+          allStatuses.splice(idx, 0, moved);
+          dragSrcIdx = null;
+          renderStatusManager();
+          renderChart();
+          renderChartAvg();
+          renderTable();
+        });
+
+        container.appendChild(chip);
+      });
+    }
+
+    function toggleStatusVisibility(status) {
+      if (hiddenStatuses.has(status)) {
+        hiddenStatuses.delete(status);
+      } else {
+        hiddenStatuses.add(status);
+      }
+      renderStatusManager();
+      renderChart();
+      renderChartAvg();
+      renderTable();
+    }
+
+    // ─── STATUS COLOR PALETTE ────────────────────────────────────────────────
+    const palette = [
+      '#7b68ee','#10b981','#f59e0b','#ef4444','#3b82f6',
+      '#ec4899','#14b8a6','#f97316','#8b5cf6','#06b6d4',
+      '#84cc16','#e11d48','#0ea5e9','#d97706','#6366f1'
+    ];
+
+    // ─── HELPERS ─────────────────────────────────────────────────────────────
+    function msToHours(ms) { return ms / 3600000; }
+
+    // Extracts sprint points from a task — checks native points field first,
+    // then falls through to any numeric custom field with "ponto" or "point" in the name.
+    function extractPoints(task) {
+      if (task.points != null && task.points !== '') {
+        const n = Number(task.points);
+        if (!isNaN(n)) return n;
+      }
+      for (const cf of (task.custom_fields || [])) {
+        const name = (cf.name || '').toLowerCase();
+        if (name.includes('ponto') || name.includes('point')) {
+          const val = cf.value ?? cf.value_richtext ?? null;
+          if (val != null && val !== '') {
+            const n = Number(val);
+            if (!isNaN(n)) return n;
+          }
+        }
+      }
+      return null;
+    }
+
+    function fmtHours(h) {
+      if (h < 0.01) return '—';
+      if (h < 1) return Math.round(h * 60) + 'm';
+      return h.toFixed(1) + 'h';
+    }
+
+    function setProgress(pct, label) {
+      document.getElementById('progressBar').style.width = pct + '%';
+      document.getElementById('progressLabel').textContent = label;
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('errorBox');
+      el.textContent = '❌ ' + msg;
+      el.classList.add('visible');
+      document.getElementById('progressSection').classList.remove('visible');
+    }
+
+    async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    // ─── API ─────────────────────────────────────────────────────────────────
+    const BASE = 'https://api.clickup.com/api/v2';
+
+    async function apiGet(path, apiKey) {
+      const res = await fetch(BASE + path, {
+        headers: { 'Authorization': apiKey, 'Content-Type': 'application/json' }
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(`API ${res.status}: ${err.err || err.error || res.statusText}`);
+      }
+      return res.json();
+    }
+
+    async function fetchAllTasks(apiKey, listId) {
+      let page = 0;
+      let tasks = [];
+      while (true) {
+        const data = await apiGet(
+          `/list/${listId}/task?include_closed=true&subtasks=true&page=${page}`,
+          apiKey
+        );
+        tasks = tasks.concat(data.tasks || []);
+        if (!data.tasks || data.tasks.length < 100) break;
+        page++;
+        await sleep(200);
+      }
+      return tasks;
+    }
+
+    async function fetchTimeInStatus(apiKey, taskId) {
+      return apiGet(`/task/${taskId}/time_in_status`, apiKey);
+    }
+
+    // ─── CORE ALGORITHM ──────────────────────────────────────────────────────
+    /**
+     * Given a task's time_in_status response, calculate how long (ms) it
+     * spent in each status WITHIN [sprintStart, sprintEnd].
+     *
+     * ClickUp returns:
+     *   data.current_status  → { status, total_time: { by_minute, since } }
+     *   data.status_history  → [{ status, total_time: { by_minute, since } }, ...]
+     *
+     * `since` = Unix ms timestamp when that status STARTED.
+     * The history is ordered oldest→newest (usually), but we sort to be safe.
+     */
+    function calcSprintTime(timeInStatusResp, sprintStart, sprintEnd) {
+      const d = timeInStatusResp.data || timeInStatusResp;
+      if (!d) return {};
+
+      // Build list of { status, startMs }
+      const entries = [];
+
+      // Add history entries
+      const history = d.status_history || [];
+      for (const h of history) {
+        const since = h.total_time?.since;
+        if (since) {
+          entries.push({ status: h.status, startMs: parseInt(since, 10) });
+        }
+      }
+
+      // Add current status
+      const cur = d.current_status;
+      if (cur?.total_time?.since) {
+        entries.push({ status: cur.status, startMs: parseInt(cur.total_time.since, 10) });
+      }
+
+      if (entries.length === 0) return null; // no history available
+
+      // Sort ascending by startMs
+      entries.sort((a, b) => a.startMs - b.startMs);
+
+      const sprintStartMs = sprintStart.getTime();
+      const sprintEndMs = sprintEnd.getTime();
+      const result = {};
+
+      for (let i = 0; i < entries.length; i++) {
+        const periodStart = entries[i].startMs;
+        const periodEnd = i + 1 < entries.length ? entries[i + 1].startMs : Date.now();
+        const status = entries[i].status;
+
+        // Overlap with sprint window
+        const overlapStart = Math.max(periodStart, sprintStartMs);
+        const overlapEnd = Math.min(periodEnd, sprintEndMs);
+
+        if (overlapEnd > overlapStart) {
+          result[status] = (result[status] || 0) + (overlapEnd - overlapStart);
+        }
+      }
+
+      return result;
+    }
+
+    // ─── MAIN ANALYSIS ───────────────────────────────────────────────────────
+    async function analyze() {
+      // Reset UI
+      document.getElementById('errorBox').classList.remove('visible');
+      document.getElementById('results').classList.remove('visible');
+      document.getElementById('corsWarning').classList.remove('visible');
+      document.getElementById('progressSection').classList.add('visible');
+      document.getElementById('analyzeBtn').disabled = true;
+      allTaskData = [];
+      hiddenStatuses = new Set();
+      dragSrcIdx = null;
+      if (chartInstanceAvg) { chartInstanceAvg.destroy(); chartInstanceAvg = null; }
+
+      const apiKey = document.getElementById('apiKey').value.trim();
+      const listId = document.getElementById('listId').value.trim();
+      const startVal = document.getElementById('startDate').value;
+      const endVal = document.getElementById('endDate').value;
+
+      // Validate
+      if (!apiKey || !listId || !startVal || !endVal) {
+        showError('Preencha todos os campos antes de analisar.');
+        document.getElementById('analyzeBtn').disabled = false;
+        return;
+      }
+
+      const sprintStart = new Date(startVal + 'T00:00:00');
+      const sprintEnd = new Date(endVal + 'T23:59:59');
+
+      if (sprintEnd <= sprintStart) {
+        showError('A data de fim deve ser posterior à data de início.');
+        document.getElementById('analyzeBtn').disabled = false;
+        return;
+      }
+
+      try {
+        // 1. Fetch tasks
+        setProgress(5, 'Buscando tarefas da lista…');
+        let tasks;
+        try {
+          tasks = await fetchAllTasks(apiKey, listId);
+        } catch (e) {
+          if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+            document.getElementById('corsWarning').classList.add('visible');
+            throw new Error('Erro de rede/CORS. Veja a instrução em amarelo acima.');
+          }
+          throw e;
+        }
+
+        if (tasks.length === 0) {
+          showError('Nenhuma tarefa encontrada nesta lista. Verifique o List ID.');
+          document.getElementById('analyzeBtn').disabled = false;
+          return;
+        }
+
+        setProgress(15, `${tasks.length} tarefas encontradas. Buscando histórico de status…`);
+
+        // 2. Fetch time_in_status for each task
+        const debugRaw = [];
+        const statusSet = new Set();
+        let processed = 0;
+
+        for (const task of tasks) {
+          try {
+            const tis = await fetchTimeInStatus(apiKey, task.id);
+            const sprintTime = calcSprintTime(tis, sprintStart, sprintEnd);
+
+            debugRaw.push({
+              taskId: task.id, name: task.name,
+              points_native: task.points,
+              points_extracted: extractPoints(task),
+              custom_fields: (task.custom_fields || []).map(cf => ({ name: cf.name, value: cf.value })),
+              sprintTime
+            });
+
+            if (sprintTime) {
+              Object.keys(sprintTime).forEach(s => statusSet.add(s));
+              allTaskData.push({
+                id: task.id,
+                name: task.name,
+                status: task.status?.status || '—',
+                url: task.url,
+                parentId: task.parent || null,
+                points: extractPoints(task),
+                sprintTime
+              });
+            } else {
+              // No history → mark as no data
+              allTaskData.push({
+                id: task.id,
+                name: task.name,
+                status: task.status?.status || '—',
+                url: task.url,
+                parentId: task.parent || null,
+                points: extractPoints(task),
+                sprintTime: {},
+                noHistory: true
+              });
+            }
+
+            processed++;
+            const pct = 15 + Math.round((processed / tasks.length) * 80);
+            setProgress(pct, `Processando ${processed}/${tasks.length} tarefas…`);
+            await sleep(80); // gentle rate-limit
+          } catch (e) {
+            // Skip individual task errors silently, but log
+            debugRaw.push({ taskId: task.id, name: task.name, error: e.message });
+            processed++;
+          }
+        }
+
+        allStatuses = sortStatuses([...statusSet]);
+
+        // 3. Render
+        setProgress(100, 'Concluído!');
+        await sleep(300);
+        document.getElementById('progressSection').classList.remove('visible');
+
+        renderSummary(sprintStart, sprintEnd);
+        renderStatusManager();
+        renderChart();
+        renderChartAvg();
+        renderTable();
+
+        // Store debug
+        document.getElementById('debugContent').textContent =
+          JSON.stringify(debugRaw, null, 2);
+
+        document.getElementById('results').classList.add('visible');
+        document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+
+      } catch (e) {
+        showError(e.message);
+      } finally {
+        document.getElementById('analyzeBtn').disabled = false;
+      }
+    }
+
+    // ─── RENDER SUMMARY ───────────────────────────────────────────────────────
+    function renderSummary(sprintStart, sprintEnd) {
+      const durationDays = Math.round((sprintEnd - sprintStart) / 86400000);
+      const filtered = getFilteredTaskData();
+
+      const subtaskCount = allTaskData.filter(t => t.parentId).length;
+
+      document.getElementById('summaryGrid').innerHTML = `
+        <div class="stat-card">
+          <div class="val">${durationDays}d</div>
+          <div class="lbl">Tempo de sprint</div>
+        </div>
+        <div class="stat-card">
+          <div class="val">${filtered.length}</div>
+          <div class="lbl">${onlyParentTasks ? 'Tarefas mães' : 'Total de tarefas'}</div>
+        </div>
+        <div class="stat-card">
+          <div class="val" style="font-size:18px;">${subtaskCount}</div>
+          <div class="lbl">${onlyParentTasks ? 'Subtarefas excluídas' : 'Subtarefas'}</div>
+        </div>
+      `;
+    }
+
+    // ─── COLOR BY STATUS ─────────────────────────────────────────────────────
+    // Color is assigned by position in allStatuses (the full list), so it stays
+    // consistent even when active statuses are reordered or hidden.
+    function colorOf(status) {
+      const idx = allStatuses.indexOf(status);
+      return palette[(idx >= 0 ? idx : 0) % palette.length];
+    }
+
+    // ─── SHARED: compute totals & counts ────────────────────────────────────
+    function computeTotalsAndCounts() {
+      const totals = {};
+      const counts = {};
+      for (const s of allStatuses) { totals[s] = 0; counts[s] = 0; }
+      for (const task of getFilteredTaskData()) {
+        for (const [s, ms] of Object.entries(task.sprintTime)) {
+          if (ms > 0) {
+            totals[s] = (totals[s] || 0) + ms;
+            counts[s] = (counts[s] || 0) + 1;
+          }
+        }
+      }
+      return { totals, counts };
+    }
+
+    function makeBarChart(canvasId, labels, values, colors, yLabel) {
+      const ctx = document.getElementById(canvasId).getContext('2d');
+      const maxVal = Math.max(...values, 1);
+      return new Chart(ctx, {
+        type: 'bar',
+        plugins: [ChartDataLabels],
+        data: {
+          labels,
+          datasets: [{
+            label: yLabel,
+            data: values,
+            backgroundColor: colors,
+            borderRadius: 6,
+            borderSkipped: false
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: { padding: { top: 24 } },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: { label: c => ` ${c.parsed.y.toFixed(1)}h` }
+            },
+            datalabels: {
+              anchor: 'end',
+              align: 'end',
+              offset: 2,
+              font: { size: 11, weight: '700' },
+              color: '#1a1a2e',
+              formatter: val => val > 0 ? val.toFixed(1) + 'h' : ''
+            }
+          },
+          scales: {
+            y: {
+              title: { display: true, text: 'horas', font: { size: 11 } },
+              grid: { color: '#f3f4f6' },
+              ticks: { font: { size: 12 } },
+              beginAtZero: true,
+              max: maxVal * 1.18
+            },
+            x: {
+              grid: { display: false },
+              ticks: { font: { size: 11 }, maxRotation: 30 }
+            }
+          }
+        }
+      });
+    }
+
+    // ─── RENDER CHART 1: TOTAL ───────────────────────────────────────────────
+    function renderChart() {
+      const active = getActiveStatuses();
+      const { totals } = computeTotalsAndCounts();
+      const values = active.map(s => parseFloat(msToHours(totals[s] || 0).toFixed(2)));
+      const colors = active.map(s => colorOf(s));
+
+      if (chartInstance) chartInstance.destroy();
+      chartInstance = makeBarChart('chartCanvas', active, values, colors, 'Total (h)');
+    }
+
+    // ─── RENDER CHART 2: MÉDIA POR TAREFA ────────────────────────────────────
+    function renderChartAvg() {
+      const active = getActiveStatuses();
+      const { totals, counts } = computeTotalsAndCounts();
+      const values = active.map(s => {
+        const c = counts[s] || 0;
+        return c > 0 ? parseFloat(msToHours(totals[s] / c).toFixed(2)) : 0;
+      });
+      const colors = active.map(s => colorOf(s));
+
+      if (chartInstanceAvg) chartInstanceAvg.destroy();
+      chartInstanceAvg = makeBarChart('chartCanvasAvg', active, values, colors, 'Média por tarefa (h)');
+    }
+
+    // ─── RENDER TABLE ─────────────────────────────────────────────────────────
+    function renderTable() {
+      const wrap = document.getElementById('tableWrap');
+      const active = getActiveStatuses();
+      const { totals, counts } = computeTotalsAndCounts();
+
+      // Header — only active statuses
+      let html = `<table><thead><tr>
+        <th>Tarefa</th>
+        <th>Status atual</th>
+        ${active.map(s => `<th style="color:${colorOf(s)}">${s}</th>`).join('')}
+        <th>Total na sprint</th>
+      </tr></thead><tbody>`;
+
+      for (const task of getFilteredTaskData()) {
+        // Total considers all statuses (not filtered), for the total column
+        const total = Object.values(task.sprintTime).reduce((a, b) => a + b, 0);
+        html += `<tr>
+          <td>
+            <div class="task-name" title="${task.name}">
+              ${task.url ? `<a href="${task.url}" target="_blank" style="color:inherit;text-decoration:none;">${task.name}</a>` : task.name}
+            </div>
+            <div class="task-id">#${task.id}</div>
+          </td>
+          <td>
+            <span class="badge" style="background:#ede9fe;color:#6d28d9;">${task.status}</span>
+            ${task.noHistory ? '<br><span style="font-size:10px;color:#ef4444;">sem histórico</span>' : ''}
+          </td>
+          ${active.map(s => {
+            const ms = task.sprintTime[s] || 0;
+            const h = msToHours(ms);
+            const barW = total > 0 ? Math.round((ms / total) * 100) : 0;
+            return `<td class="time-cell">
+              ${fmtHours(h)}
+              ${ms > 0 ? `<div class="time-bar" style="width:${barW}%;background:${colorOf(s)}"></div>` : ''}
+            </td>`;
+          }).join('')}
+          <td class="time-cell"><strong>${fmtHours(msToHours(total))}</strong></td>
+        </tr>`;
+      }
+
+      const activeTotals = active.reduce((acc, s) => acc + (totals[s] || 0), 0);
+      const grandTotal = Object.values(totals).reduce((a, b) => a + b, 0);
+      const grandCount = getFilteredTaskData().filter(t => Object.values(t.sprintTime).some(v => v > 0)).length;
+
+      html += `</tbody><tfoot>
+        <tr class="tfoot-row">
+          <td colspan="2"><strong>Total</strong></td>
+          ${active.map(s => `<td class="time-cell"><strong>${fmtHours(msToHours(totals[s] || 0))}</strong><br><span style="font-size:10px;font-weight:400;">${counts[s] || 0} tarefa${(counts[s] || 0) !== 1 ? 's' : ''}</span></td>`).join('')}
+          <td class="time-cell"><strong>${fmtHours(msToHours(grandTotal))}</strong></td>
+        </tr>
+        <tr style="background:#f0fdf4;">
+          <td colspan="2" style="font-weight:700;color:#065f46;">Média por tarefa</td>
+          ${active.map(s => {
+            const avg = (counts[s] || 0) > 0 ? msToHours(totals[s] / counts[s]) : 0;
+            return `<td class="time-cell" style="color:#065f46;font-weight:600;">${fmtHours(avg)}</td>`;
+          }).join('')}
+          <td class="time-cell" style="color:#065f46;font-weight:600;">${grandCount > 0 ? fmtHours(msToHours(grandTotal / grandCount)) : '—'}</td>
+        </tr>
+      </tfoot></table>`;
+
+      wrap.innerHTML = html;
+    }
+
+    // ─── EXPORT PNG ──────────────────────────────────────────────────────────
+    function exportPNG(canvasId, suffix) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      const dates = `${document.getElementById('startDate').value}_${document.getElementById('endDate').value}`;
+      a.download = `grafico_${suffix}_${dates}.png`;
+      a.click();
+    }
+
+    // ─── EXPORT EXCEL ────────────────────────────────────────────────────────
+    function exportExcel() {
+      const active = getActiveStatuses();
+      const { totals, counts } = computeTotalsAndCounts();
+
+      // Build rows
+      const header = ['ID', 'Tarefa', 'Status Atual', 'É subtarefa?', ...active, 'Total Sprint (h)'];
+      const dataRows = getFilteredTaskData().map(task => {
+        const total = Object.values(task.sprintTime).reduce((a, b) => a + b, 0);
+        return [
+          task.id,
+          task.name,
+          task.status,
+          task.parentId ? 'Sim' : 'Não',
+          ...active.map(s => parseFloat(msToHours(task.sprintTime[s] || 0).toFixed(2))),
+          parseFloat(msToHours(total).toFixed(2))
+        ];
+      });
+
+      const grandTotal = Object.values(totals).reduce((a, b) => a + b, 0);
+      const totalRow = ['', 'TOTAL', '', '', ...active.map(s => parseFloat(msToHours(totals[s] || 0).toFixed(2))), parseFloat(msToHours(grandTotal).toFixed(2))];
+      const avgRow   = ['', 'MÉDIA POR TAREFA', '', '', ...active.map(s => (counts[s] || 0) > 0 ? parseFloat(msToHours(totals[s] / counts[s]).toFixed(2)) : 0), ''];
+
+      const ws = XLSX.utils.aoa_to_sheet([header, ...dataRows, [], totalRow, avgRow]);
+
+      // Column widths
+      ws['!cols'] = [
+        { wch: 14 }, { wch: 40 }, { wch: 16 }, { wch: 14 },
+        ...active.map(() => ({ wch: 16 })),
+        { wch: 16 }
+      ];
+
+      // Style header row (bold via cell metadata — SheetJS CE supports limited styling)
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      for (let C = range.s.c; C <= range.e.c; C++) {
+        const addr = XLSX.utils.encode_cell({ r: 0, c: C });
+        if (!ws[addr]) continue;
+        ws[addr].s = { font: { bold: true }, fill: { fgColor: { rgb: 'EDE9FE' } } };
+      }
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Sprint Metrics');
+
+      const startVal = document.getElementById('startDate').value;
+      const endVal = document.getElementById('endDate').value;
+      XLSX.writeFile(wb, `sprint_metrics_${startVal}_${endVal}.xlsx`);
+    }
+
+    // ─── TOGGLE PARENT FILTER ─────────────────────────────────────────────────
+    function toggleParentFilter() {
+      onlyParentTasks = document.getElementById('onlyParentToggle').checked;
+      if (allTaskData.length === 0) return; // nothing loaded yet
+      const sprintStart = new Date(document.getElementById('startDate').value + 'T00:00:00');
+      const sprintEnd   = new Date(document.getElementById('endDate').value   + 'T23:59:59');
+      renderSummary(sprintStart, sprintEnd);
+      renderChart();
+      renderChartAvg();
+      renderTable();
+    }
+
+    // ─── DEBUG ────────────────────────────────────────────────────────────────
+    function toggleDebug() {
+      document.getElementById('debugContent').classList.toggle('visible');
+    }
+
+    // ─── PRE-FILL DATES (current month as example) ───────────────────────────
+    (() => {
+      const today = new Date();
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      document.getElementById('endDate').value = today.toISOString().split('T')[0];
+      document.getElementById('startDate').value = firstDay.toISOString().split('T')[0];
+    })();
+  </script>
+
+</body>
+</html>
